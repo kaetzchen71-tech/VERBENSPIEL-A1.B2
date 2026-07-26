@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>UNO Verbspiel — Flipkarten</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --a1-bg:#e9f3e6; --a1-dark:#3f8a3f; --a1-deep:#2f6b2f;
+    --a2-bg:#e6eefb; --a2-dark:#2f6fb0; --a2-deep:#1f527f;
+    --b1-bg:#fbf3de; --b1-dark:#d9a520; --b1-deep:#b3860f;
+    --b2-bg:#fbe9e6; --b2-dark:#c8352c; --b2-deep:#9c241d;
+    --ink:#1a1a1a;
+    --paper:#f4f1ea;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Verdana, sans-serif;
+    background:linear-gradient(180deg,#20242b,#12151a);
+    color:#eee;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:24px 12px 60px;
+  }
+  h1{
+    font-size:1.6rem;
+    margin:6px 0 2px;
+    letter-spacing:.02em;
+  }
+  .subtitle{
+    color:#9aa0aa;
+    font-size:.95rem;
+    margin-bottom:18px;
+    text-align:center;
+  }
+  .panel{
+    background:#1c1f26;
+    border:1px solid #333844;
+    border-radius:14px;
+    padding:16px 20px;
+    width:100%;
+    max-width:520px;
+    margin-bottom:18px;
+  }
+  .levels{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-bottom:12px;
+  }
+  .lvl-btn{
+    border:2px solid transparent;
+    border-radius:20px;
+    padding:6px 14px;
+    font-weight:700;
+    font-size:.85rem;
+    cursor:pointer;
+    color:#111;
+    opacity:.45;
+    transition:opacity .15s, transform .1s;
+  }
+  .lvl-btn.active{ opacity:1; }
+  .lvl-btn:active{ transform:scale(.95); }
+  .lvl-A1{background:var(--a1-bg); border-color:var(--a1-dark);}
+  .lvl-A2{background:var(--a2-bg); border-color:var(--a2-dark);}
+  .lvl-B1{background:var(--b1-bg); border-color:var(--b1-dark);}
+  .lvl-B2{background:var(--b2-bg); border-color:var(--b2-dark);}
+
+  .row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .stat{
+    text-align:center;
+    flex:1;
+    min-width:80px;
+  }
+  .stat .num{ font-size:1.4rem; font-weight:800; display:block; }
+  .stat .label{ font-size:.72rem; color:#9aa0aa; text-transform:uppercase; letter-spacing:.05em; }
+  #pointsNum{ color:#7cd992; }
+  #wrongNum{ color:#e07a72; }
+  #progressNum{ color:#8ab6ee; }
+
+  .scene{
+    width:300px;
+    max-width:88vw;
+    height:420px;
+    perspective:1400px;
+    margin-bottom:22px;
+  }
+  .card{
+    position:relative;
+    width:100%;
+    height:100%;
+    transition:transform .55s cubic-bezier(.4,.2,.2,1);
+    transform-style:preserve-3d;
+    cursor:pointer;
+  }
+  .card.flipped{ transform:rotateY(180deg); }
+  .face{
+    position:absolute;
+    inset:0;
+    backface-visibility:hidden;
+    border-radius:22px;
+    border:6px solid #14161a;
+    box-shadow:0 10px 30px rgba(0,0,0,.45);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .front{
+    background:var(--lvl-bg,#eee);
+  }
+  .back{
+    transform:rotateY(180deg);
+    background:var(--lvl-bg,#eee);
+  }
+  .badge{
+    align-self:flex-start;
+    margin:14px;
+    background:#111;
+    color:#fff;
+    font-size:.72rem;
+    font-weight:700;
+    padding:3px 10px;
+    border-radius:8px;
+    letter-spacing:.03em;
+  }
+  .front .infinitive{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:0 18px;
+  }
+  .front .infinitive span{
+    font-size:2.3rem;
+    font-weight:800;
+    color:var(--lvl-deep,#222);
+  }
+  .front .hint{
+    text-align:center;
+    color:#555;
+    font-size:.85rem;
+    padding-bottom:16px;
+  }
+  .back-inner{
+    padding:14px 16px 10px;
+    display:flex;
+    flex-direction:column;
+    height:100%;
+  }
+  .back .infinitive-sm{
+    font-size:1.35rem;
+    font-weight:800;
+    color:var(--lvl-deep,#222);
+  }
+  .back .translation{
+    font-style:italic;
+    color:#444;
+    font-size:.9rem;
+    margin-bottom:8px;
+  }
+  .formbox{
+    background:#fff;
+    border:2px solid var(--lvl-dark,#999);
+    border-radius:10px;
+    padding:6px 10px;
+    margin-bottom:6px;
+  }
+  .formbox .flabel{
+    color:var(--lvl-deep,#333);
+    font-weight:700;
+    font-size:.68rem;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  .formbox .fval{
+    font-size:.98rem;
+    color:#111;
+  }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+    width:100%;
+    max-width:520px;
+  }
+  button.action{
+    border:none;
+    border-radius:10px;
+    padding:11px 18px;
+    font-size:.95rem;
+    font-weight:700;
+    cursor:pointer;
+    transition:transform .1s, filter .15s;
+  }
+  button.action:active{ transform:scale(.96); }
+  #flipBtn{ background:#3a4150; color:#fff; }
+  #correctBtn{ background:#3f8a3f; color:#fff; display:none; }
+  #wrongBtn{ background:#c8352c; color:#fff; display:none; }
+  #resetBtn{ background:#555c68; color:#ccc; font-size:.8rem; padding:8px 14px; }
+  button.action:hover{ filter:brightness(1.1); }
+  button:disabled{ opacity:.35; cursor:not-allowed; }
+
+  footer{
+    margin-top:20px;
+    color:#666;
+    font-size:.75rem;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<h1>UNO Verbspiel — Flipkarten</h1>
+<div class="subtitle">Karte antippen, Formen raten, umdrehen &amp; Punkte sammeln</div>
+
+<div class="panel">
+  <div class="levels">
+    <div class="lvl-btn lvl-A1 active" data-lvl="A1">A1</div>
+    <div class="lvl-btn lvl-A2 active" data-lvl="A2">A2</div>
+    <div class="lvl-btn lvl-B1 active" data-lvl="B1">B1</div>
+    <div class="lvl-btn lvl-B2 active" data-lvl="B2">B2</div>
+  </div>
+  <div class="row">
+    <div class="stat"><span class="num" id="pointsNum">0</span><span class="label">Richtig</span></div>
+    <div class="stat"><span class="num" id="wrongNum">0</span><span class="label">Falsch</span></div>
+    <div class="stat"><span class="num" id="progressNum">0/0</span><span class="label">Karten</span></div>
+  </div>
+</div>
+
+<div class="scene">
+  <div class="card" id="card">
+    <div class="face front">
+      <div class="badge" id="badgeFront">A1</div>
+      <div class="infinitive"><span id="infFront">—</span></div>
+      <div class="hint">Präsens · Präteritum · Partizip Perfekt sagen, dann umdrehen</div>
+    </div>
+    <div class="face back">
+      <div class="back-inner">
+        <div class="badge" id="badgeBack">A1</div>
+        <div class="infinitive-sm" id="infBack">—</div>
+        <div class="translation" id="tradBack">—</div>
+        <div class="formbox"><div class="flabel">Präsens</div><div class="fval" id="presBack">—</div></div>
+        <div class="formbox"><div class="flabel">Präteritum</div><div class="fval" id="pretBack">—</div></div>
+        <div class="formbox"><div class="flabel">Partizip Perfekt</div><div class="fval" id="ppBack">—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="action" id="flipBtn">Karte umdrehen</button>
+  <button class="action" id="correctBtn">✓ Richtig — nächste Karte</button>
+  <button class="action" id="wrongBtn">✗ Falsch — nächste Karte</button>
+</div>
+<div class="controls" style="margin-top:8px;">
+  <button class="action" id="resetBtn">Spiel neu starten (mischen)</button>
+</div>
+
+<footer>130 Verben · A1–B2 · basierend auf deinem UNO-Verbspiel</footer>
+
+<script>
+const VERBS = [
+{l:"A1",i:"schreiben",t:"escribir",p:"er schreibt",pt:"er schrieb",pp:"er hat geschrieben"},
+{l:"A1",i:"bleiben",t:"estar / permanecer",p:"er bleibt",pt:"er blieb",pp:"er ist geblieben"},
+{l:"A1",i:"beginnen",t:"comenzar",p:"er beginnt",pt:"er begann",pp:"er hat begonnen"},
+{l:"A1",i:"essen",t:"comer",p:"er isst",pt:"er aß",pp:"er hat gegessen"},
+{l:"A1",i:"denken",t:"pensar",p:"er denkt",pt:"er dachte",pp:"er hat gedacht"},
+{l:"A1",i:"bringen",t:"traer / llevar",p:"er bringt",pt:"er brachte",pp:"er hat gebracht"},
+{l:"A1",i:"finden",t:"encontrar",p:"er findet",pt:"er fand",pp:"er hat gefunden"},
+{l:"A1",i:"fangen",t:"atrapar",p:"er fängt",pt:"er fing",pp:"er hat gefangen"},
+{l:"A1",i:"fahren",t:"conducir / viajar",p:"er fährt",pt:"er fuhr",pp:"er hat/ist gefahren"},
+{l:"A1",i:"gehen",t:"ir / caminar",p:"er geht",pt:"er ging",pp:"er ist gegangen"},
+{l:"A1",i:"geben",t:"dar",p:"er gibt",pt:"er gab",pp:"er hat gegeben"},
+{l:"A1",i:"fliegen",t:"volar",p:"er fliegt",pt:"er flog",pp:"er hat/ist geflogen"},
+{l:"A1",i:"helfen",t:"ayudar",p:"er hilft",pt:"er half",pp:"er hat geholfen"},
+{l:"A1",i:"heißen",t:"llamarse",p:"er heißt",pt:"er hieß",pp:"er hat geheißen"},
+{l:"A1",i:"haben",t:"tener / haber",p:"er hat",pt:"er hatte",pp:"er hat gehabt"},
+{l:"A1",i:"lesen",t:"leer",p:"er liest",pt:"er las",pp:"er hat gelesen"},
+{l:"A1",i:"kommen",t:"venir / llegar",p:"er kommt",pt:"er kam",pp:"er ist gekommen"},
+{l:"A1",i:"kennen",t:"conocer",p:"er kennt",pt:"er kannte",pp:"er hat gekannt"},
+{l:"A1",i:"schlafen",t:"dormir",p:"er schläft",pt:"er schlief",pp:"er hat geschlafen"},
+{l:"A1",i:"rufen",t:"llamar / gritar a alguien",p:"er ruft",pt:"er rief",pp:"er hat gerufen"},
+{l:"A1",i:"nehmen",t:"tomar (no es beber)",p:"er nimmt",pt:"er nahm",pp:"er hat genommen"},
+{l:"A1",i:"sein",t:"ser o estar",p:"er ist",pt:"er war",pp:"er ist gewesen"},
+{l:"A1",i:"sehen",t:"ver / mirar",p:"er sieht",pt:"er sah",pp:"er hat gesehen"},
+{l:"A1",i:"schwimmen",t:"nadar",p:"er schwimmt",pt:"er schwamm",pp:"er hat/ist geschwommen"},
+{l:"A1",i:"stehen",t:"estar parado",p:"er steht",pt:"er stand",pp:"er hat gestanden"},
+{l:"A1",i:"sprechen",t:"hablar / conversar",p:"er spricht",pt:"er sprach",pp:"er hat gesprochen"},
+{l:"A1",i:"singen",t:"cantar",p:"er singt",pt:"er sang",pp:"er hat gesungen"},
+{l:"A1",i:"tun",t:"hacer",p:"er tut",pt:"er tat",pp:"er hat getan"},
+{l:"A1",i:"trinken",t:"beber",p:"er trinkt",pt:"er trank",pp:"er hat getrunken"},
+{l:"A1",i:"treffen",t:"encontrar(se)",p:"er trifft",pt:"er traf",pp:"er hat getroffen"},
+{l:"A1",i:"wissen",t:"saber",p:"er weiß",pt:"er wusste",pp:"er hat gewusst"},
+{l:"A2",i:"biegen",t:"doblar algo / estar doblado",p:"er biegt",pt:"er bog",pp:"er hat/ist gebogen"},
+{l:"A2",i:"backen",t:"hornear",p:"er backt",pt:"er backte",pp:"er hat gebacken"},
+{l:"A2",i:"braten",t:"asar",p:"er brät",pt:"er briet",pp:"er hat gebraten"},
+{l:"A2",i:"bitten",t:"pedir",p:"er bittet",pt:"er bat",pp:"er hat gebeten"},
+{l:"A2",i:"bieten",t:"ofrecer",p:"er bietet",pt:"er bot",pp:"er hat geboten"},
+{l:"A2",i:"gewinnen",t:"ganar",p:"er gewinnt",pt:"er gewann",pp:"er hat gewonnen"},
+{l:"A2",i:"gefallen",t:"gustar",p:"er gefällt",pt:"er gefiel",pp:"er hat gefallen"},
+{l:"A2",i:"fallen",t:"caer(se)",p:"er fällt",pt:"er fiel",pp:"er ist gefallen"},
+{l:"A2",i:"liegen",t:"estar acostado / horizontal",p:"er liegt",pt:"er lag",pp:"er hat gelegen"},
+{l:"A2",i:"laufen",t:"correr",p:"er läuft",pt:"er lief",pp:"er ist gelaufen"},
+{l:"A2",i:"laden",t:"cargar",p:"er lädt",pt:"er lud",pp:"er hat geladen"},
+{l:"A2",i:"schließen",t:"cerrar",p:"er schließt",pt:"er schloss",pp:"er hat geschlossen"},
+{l:"A2",i:"riechen",t:"oler",p:"er riecht",pt:"er roch",pp:"er hat gerochen"},
+{l:"A2",i:"nennen",t:"nombrar",p:"er nennt",pt:"er nannte",pp:"er hat genannt"},
+{l:"A2",i:"sterben",t:"morir",p:"er stirbt",pt:"er starb",pp:"er ist gestorben"},
+{l:"A2",i:"steigen",t:"subir",p:"er steigt",pt:"er stieg",pp:"er ist gestiegen"},
+{l:"A2",i:"sitzen",t:"estar sentado",p:"er sitzt",pt:"er saß",pp:"er hat gesessen"},
+{l:"A2",i:"verlieren",t:"perder algo",p:"er verliert",pt:"er verlor",pp:"er hat verloren"},
+{l:"A2",i:"vergessen",t:"olvidar",p:"er vergisst",pt:"er vergaß",pp:"er hat vergessen"},
+{l:"A2",i:"treiben",t:"practicar (deportes)",p:"er treibt",pt:"er trieb",pp:"er hat/ist getrieben"},
+{l:"A2",i:"werden",t:"llegar a ser",p:"er wird",pt:"er wurde",pp:"er ist geworden"},
+{l:"A2",i:"waschen",t:"lavar",p:"er wäscht",pt:"er wusch",pp:"er hat gewaschen"},
+{l:"A2",i:"wachsen",t:"crecer",p:"er wächst",pt:"er wuchs",pp:"er ist gewachsen"},
+{l:"A2",i:"ziehen",t:"tirar algo",p:"er zieht",pt:"er zog",pp:"er hat/ist gezogen"},
+{l:"A2",i:"werfen",t:"lanzar",p:"er wirft",pt:"er warf",pp:"er hat geworfen"},
+{l:"B1",i:"befehlen",t:"ordenar",p:"er befiehlt",pt:"er befahl",pp:"er hat befohlen"},
+{l:"B1",i:"brechen",t:"romper",p:"er bricht",pt:"er brach",pp:"er hat/ist gebrochen"},
+{l:"B1",i:"binden",t:"atar",p:"er bindet",pt:"er band",pp:"er hat gebunden"},
+{l:"B1",i:"beißen",t:"morder",p:"er beißt",pt:"er biss",pp:"er hat gebissen"},
+{l:"B1",i:"erschrecken",t:"asustarse",p:"er erschrickt",pt:"er erschrak",pp:"er ist erschrocken"},
+{l:"B1",i:"empfehlen",t:"recomendar",p:"er empfiehlt",pt:"er empfahl",pp:"er hat empfohlen"},
+{l:"B1",i:"brennen",t:"quemar",p:"er brennt",pt:"er brannte",pp:"er hat gebrannt"},
+{l:"B1",i:"fressen",t:"devorar",p:"er frisst",pt:"er fraß",pp:"er hat gefressen"},
+{l:"B1",i:"fließen",t:"fluir (agua, ríos, etc.)",p:"er fließt",pt:"er floss",pp:"er ist geflossen"},
+{l:"B1",i:"fliehen",t:"huir",p:"er flieht",pt:"er floh",pp:"er ist geflohen"},
+{l:"B1",i:"gelten",t:"valer / ser válido",p:"er gilt",pt:"er galt",pp:"er hat gegolten"},
+{l:"B1",i:"gelingen",t:"resultar / tener éxito",p:"er gelingt",pt:"er gelang",pp:"er ist gelungen"},
+{l:"B1",i:"frieren",t:"tener frío",p:"er friert",pt:"er fror",pp:"er hat/ist gefroren"},
+{l:"B1",i:"gießen",t:"regar, rociar",p:"er gießt",pt:"er goss",pp:"er hat gegossen"},
+{l:"B1",i:"geschehen",t:"suceder / acontecer",p:"er geschieht",pt:"er geschah",pp:"er ist geschehen"},
+{l:"B1",i:"genießen",t:"disfrutar",p:"er genießt",pt:"er genoss",pp:"er hat genossen"},
+{l:"B1",i:"greifen",t:"agarrar / tomar algo",p:"er greift",pt:"er griff",pp:"er hat gegriffen"},
+{l:"B1",i:"graben",t:"excavar",p:"er gräbt",pt:"er grub",pp:"er hat gegraben"},
+{l:"B1",i:"gleichen",t:"igualar",p:"er gleicht",pt:"er glich",pp:"er hat geglichen"},
+{l:"B1",i:"heben",t:"elevar",p:"er hebt",pt:"er hob",pp:"er hat gehoben"},
+{l:"B1",i:"hängen",t:"estar colgado",p:"er hängt",pt:"er hing",pp:"er hat gehangen"},
+{l:"B1",i:"halten",t:"sostener",p:"er hält",pt:"er hielt",pp:"er hat gehalten"},
+{l:"B1",i:"leiden",t:"sufrir",p:"er leidet",pt:"er litt",pp:"er hat gelitten"},
+{l:"B1",i:"lassen",t:"dejar / permitir",p:"er lässt",pt:"er ließ",pp:"er hat gelassen"},
+{l:"B1",i:"klingen",t:"sonar / tocar un timbre",p:"er klingt",pt:"er klang",pp:"er hat geklungen"},
+{l:"B1",i:"meiden",t:"evitar / abstenerse",p:"er meidet",pt:"er mied",pp:"er hat gemieden"},
+{l:"B1",i:"lügen",t:"mentir",p:"er lügt",pt:"er log",pp:"er hat gelogen"},
+{l:"B1",i:"leihen",t:"prestar",p:"er leiht",pt:"er lieh",pp:"er hat geliehen"},
+{l:"B1",i:"reiben",t:"frotar",p:"er reibt",pt:"er rieb",pp:"er hat gerieben"},
+{l:"B1",i:"raten",t:"aconsejar",p:"er rät",pt:"er riet",pp:"er hat geraten"},
+{l:"B1",i:"messen",t:"medir",p:"er misst",pt:"er maß",pp:"er hat gemessen"},
+{l:"B1",i:"scheiden",t:"divorciarse / estar divorciado",p:"er scheidet",pt:"er schied",pp:"er hat/ist geschieden"},
+{l:"B1",i:"schaffen",t:"crear",p:"er schafft",pt:"er schuf",pp:"er hat geschaffen"},
+{l:"B1",i:"reiten",t:"cabalgar",p:"er reitet",pt:"er ritt",pp:"er hat/ist geritten"},
+{l:"B1",i:"schießen",t:"disparar",p:"er schießt",pt:"er schoss",pp:"er hat/ist geschossen"},
+{l:"B1",i:"schieben",t:"empujar / mover",p:"er schiebt",pt:"er schob",pp:"er hat geschoben"},
+{l:"B1",i:"scheinen",t:"parecer / brillar",p:"er scheint",pt:"er schien",pp:"er hat geschienen"},
+{l:"B1",i:"schneiden",t:"cortar",p:"er schneidet",pt:"er schnitt",pp:"er hat geschnitten"},
+{l:"B1",i:"schmeißen",t:"tirar algo / arrojar algo",p:"er schmeißt",pt:"er schmiss",pp:"er hat geschmissen"},
+{l:"B1",i:"schlagen",t:"golpear",p:"er schlägt",pt:"er schlug",pp:"er hat geschlagen"},
+{l:"B1",i:"sinken",t:"hundir(se)",p:"er sinkt",pt:"er sank",pp:"er ist gesunken"},
+{l:"B1",i:"senden",t:"enviar",p:"er sendet",pt:"er sandte",pp:"er hat gesandt"},
+{l:"B1",i:"schreien",t:"gritar",p:"er schreit",pt:"er schrie",pp:"er hat geschrien"},
+{l:"B1",i:"stinken",t:"oler mal",p:"er stinkt",pt:"er stank",pp:"er hat gestunken"},
+{l:"B1",i:"stehlen",t:"robar",p:"er stiehlt",pt:"er stahl",pp:"er hat gestohlen"},
+{l:"B1",i:"springen",t:"saltar",p:"er springt",pt:"er sprang",pp:"er ist gesprungen"},
+{l:"B1",i:"treten",t:"pasar / caminar",p:"er tritt",pt:"er trat",pp:"er hat/ist getreten"},
+{l:"B1",i:"tragen",t:"llevar puesto / transportar",p:"er trägt",pt:"er trug",pp:"er hat getragen"},
+{l:"B1",i:"streiten",t:"discutir",p:"er streitet",pt:"er stritt",pp:"er hat gestritten"},
+{l:"B1",i:"weisen",t:"indicar / mostrar / señalar",p:"er weist",pt:"er wies",pp:"er hat gewiesen"},
+{l:"B1",i:"verzeihen",t:"perdonar",p:"er verzeiht",pt:"er verzieh",pp:"er hat verziehen"},
+{l:"B1",i:"trügen",t:"engañar",p:"er trügt",pt:"er trog",pp:"er hat getrogen"},
+{l:"B1",i:"zwingen",t:"obligar",p:"er zwingt",pt:"er zwang",pp:"er hat gezwungen"},
+{l:"B1",i:"wiegen",t:"pesar",p:"er wiegt",pt:"er wog",pp:"er hat gewogen"},
+{l:"B1",i:"werben",t:"anunciar / publicitar",p:"er wirbt",pt:"er warb",pp:"er hat geworben"},
+{l:"B1",i:"beweisen",t:"probar / demostrar",p:"er beweist",pt:"er bewies",pp:"er hat bewiesen"},
+{l:"B1",i:"entscheiden",t:"decidir",p:"er entscheidet",pt:"er entschied",pp:"er hat entschieden"},
+{l:"B1",i:"abbiegen",t:"girar (dirección)",p:"er biegt ab",pt:"er bog ab",pp:"er ist abgebogen"},
+{l:"B2",i:"pfeifen",t:"silbar",p:"er pfeift",pt:"er pfiff",pp:"er hat gepfiffen"},
+{l:"B2",i:"gebären",t:"dar a luz / parir",p:"er gebärt",pt:"er gebar",pp:"er hat geboren"},
+{l:"B2",i:"blasen",t:"soplar",p:"er bläst",pt:"er blies",pp:"er hat geblasen"},
+{l:"B2",i:"saufen",t:"beber (animales) / emborracharse",p:"er säuft",pt:"er soff",pp:"er hat gesoffen"},
+{l:"B2",i:"ringen",t:"pelear / forcejear",p:"er ringt",pt:"er rang",pp:"er hat gerungen"},
+{l:"B2",i:"reißen",t:"romper",p:"er reißt",pt:"er riss",pp:"er hat gerissen"},
+{l:"B2",i:"schweigen",t:"guardar silencio",p:"er schweigt",pt:"er schwieg",pp:"er hat geschwiegen"},
+{l:"B2",i:"schreiten",t:"dar pasos / caminar",p:"er schreitet",pt:"er schritt",pp:"er ist geschritten"},
+{l:"B2",i:"schmelzen",t:"derretirse / estar derretido",p:"er schmilzt",pt:"er schmolz",pp:"er hat/ist geschmolzen"},
+{l:"B2",i:"spinnen",t:"hilar / decir tonterías",p:"er spinnt",pt:"er spann",pp:"er hat gesponnen"},
+{l:"B2",i:"schwinden",t:"disminuir / decrecer",p:"er schwindet",pt:"er schwand",pp:"er ist geschwunden"},
+{l:"B2",i:"schwellen",t:"inflamarse",p:"er schwillt",pt:"er schwoll",pp:"er ist geschwollen"},
+{l:"B2",i:"streichen",t:"pintar / andar dando vueltas",p:"er streicht",pt:"er strich",pp:"er hat/ist gestrichen"},
+{l:"B2",i:"stoßen",t:"empujar / chocar",p:"er stößt",pt:"er stieß",pp:"er hat/ist gestoßen"},
+{l:"B2",i:"stechen",t:"punzar / picar (insectos)",p:"er sticht",pt:"er stach",pp:"er hat gestochen"},
+{l:"B2",i:"verderben",t:"podrirse",p:"er verdirbt",pt:"er verdarb",pp:"er hat/ist verdorben"}
+];
+
+const lvlBg   = {A1:"#e9f3e6", A2:"#e6eefb", B1:"#fbf3de", B2:"#fbe9e6"};
+const lvlDark = {A1:"#3f8a3f", A2:"#2f6fb0", B1:"#d9a520", B2:"#c8352c"};
+const lvlDeep = {A1:"#2f6b2f", A2:"#1f527f", B1:"#b3860f", B2:"#9c241d"};
+
+let activeLevels = new Set(["A1","A2","B1","B2"]);
+let deck = [];
+let idx = 0;
+let points = 0;
+let wrong = 0;
+let currentAnswered = false;
+
+const cardEl = document.getElementById('card');
+const infFront = document.getElementById('infFront');
+const badgeFront = document.getElementById('badgeFront');
+const infBack = document.getElementById('infBack');
+const badgeBack = document.getElementById('badgeBack');
+const tradBack = document.getElementById('tradBack');
+const presBack = document.getElementById('presBack');
+const pretBack = document.getElementById('pretBack');
+const ppBack = document.getElementById('ppBack');
+const flipBtn = document.getElementById('flipBtn');
+const correctBtn = document.getElementById('correctBtn');
+const wrongBtn = document.getElementById('wrongBtn');
+const resetBtn = document.getElementById('resetBtn');
+const pointsNum = document.getElementById('pointsNum');
+const wrongNum = document.getElementById('wrongNum');
+const progressNum = document.getElementById('progressNum');
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function buildDeck(){
+  deck = shuffle(VERBS.filter(v => activeLevels.has(v.l)).slice());
+  idx = 0;
+  points = 0;
+  wrong = 0;
+  updateStats();
+  showCard();
+}
+
+function updateStats(){
+  pointsNum.textContent = points;
+  wrongNum.textContent = wrong;
+  progressNum.textContent = (deck.length ? Math.min(idx+1, deck.length) : 0) + "/" + deck.length;
+}
+
+function setLevelVars(level){
+  cardEl.style.setProperty('--lvl-bg', lvlBg[level]);
+  cardEl.style.setProperty('--lvl-dark', lvlDark[level]);
+  cardEl.style.setProperty('--lvl-deep', lvlDeep[level]);
+}
+
+function showCard(){
+  cardEl.classList.remove('flipped');
+  currentAnswered = false;
+  correctBtn.style.display = 'none';
+  wrongBtn.style.display = 'none';
+  flipBtn.style.display = 'inline-block';
+  flipBtn.disabled = false;
+
+  if(deck.length === 0){
+    infFront.textContent = "Keine Karten";
+    badgeFront.textContent = "–";
+    return;
+  }
+  if(idx >= deck.length){
+    infFront.textContent = "Fertig! 🎉";
+    badgeFront.textContent = "Ende";
+    flipBtn.disabled = true;
+    updateStats();
+    return;
+  }
+  const v = deck[idx];
+  setLevelVars(v.l);
+  badgeFront.textContent = v.l;
+  infFront.textContent = v.i;
+  badgeBack.textContent = v.l;
+  infBack.textContent = v.i;
+  tradBack.textContent = v.t;
+  presBack.textContent = v.p;
+  pretBack.textContent = v.pt;
+  ppBack.textContent = v.pp;
+  updateStats();
+}
+
+flipBtn.addEventListener('click', () => {
+  if(idx >= deck.length) return;
+  cardEl.classList.add('flipped');
+  flipBtn.style.display = 'none';
+  correctBtn.style.display = 'inline-block';
+  wrongBtn.style.display = 'inline-block';
+});
+
+correctBtn.addEventListener('click', () => {
+  if(currentAnswered) return;
+  currentAnswered = true;
+  points++;
+  idx++;
+  updateStats();
+  setTimeout(showCard, 150);
+});
+
+wrongBtn.addEventListener('click', () => {
+  if(currentAnswered) return;
+  currentAnswered = true;
+  wrong++;
+  idx++;
+  updateStats();
+  setTimeout(showCard, 150);
+});
+
+resetBtn.addEventListener('click', buildDeck);
+
+document.querySelectorAll('.lvl-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const lvl = btn.dataset.lvl;
+    if(activeLevels.has(lvl)){
+      if(activeLevels.size > 1){
+        activeLevels.delete(lvl);
+        btn.classList.remove('active');
+      }
+    } else {
+      activeLevels.add(lvl);
+      btn.classList.add('active');
+    }
+    buildDeck();
+  });
+});
+
+buildDeck();
+</script>
+</body>
+</html>
